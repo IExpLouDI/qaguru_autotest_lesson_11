@@ -1,41 +1,52 @@
+import os
+
 import pytest
-from selene import Browser, Config
+from dotenv import load_dotenv
+from selene import browser
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
+from utils import attach
 
-@pytest.fixture(scope="function")
-def browser_():
+
+@pytest.fixture(scope='session', autouse=True)
+def load_env():
+    load_dotenv()
+
+
+@pytest.fixture(scope='function')
+def setup_browser(request):
+
+    selenoid_login = os.getenv("SELENOID_LOGIN")
+    selenoid_pass = os.getenv("SELENOID_PASSWORD")
+    selenoid_url = os.getenv("SELENOID_HOST")
 
     options = Options()
+    selenoid_capabilities = {
+        "browserName": "chrome",
+        "browserVersion": "127.0",
+        "selenoid:options": {"enableVNC": True, "enableVideo": True, "enableLog": True},
+        "goog:loggingPrefs": {'browser': 'ALL'},
+    }
     options.add_argument("--start-maximized")
-    # options.add_argument("--headless")  # Uncomment for headless mode
     options.add_argument("--disable-blink-features=AutomationControlled")
     options.page_load_strategy = "eager"
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
 
-    selenoid_capabilities = {
-        "browserName": "chrome",
-        "browserVersion": "100.0",
-        "selenoid:options": {
-            "enableVNC": True,  # Added VNC for visibility
-            "enableVideo": True,
-            "enableLog": True,  # Added logging
-        },
-    }
     options.capabilities.update(selenoid_capabilities)
 
-    # Initialize remote driver
     driver = webdriver.Remote(
-        command_executor="https://user1:1234@selenoid.autotests.cloud/wd/hub",
-        options=options,  # Using options instead of desired_capabilities
+        command_executor=f'https://{selenoid_login}:{selenoid_pass}@{selenoid_url}',
+        options=options,
     )
 
-    # Initialize Selene browser
-    browser = Browser(Config(driver))
-
+    browser.config.driver = driver
     yield browser
+    #
+    attach.add_screenshot(browser)
+    attach.add_logs(browser)
+    attach.add_html(browser)
+    attach.add_video(browser)
 
-    # Teardown
-    browser.quit()  # Using quit() instead of close() for proper cleanup
+    browser.quit()

@@ -9,7 +9,6 @@ __pycache__/
 # Allure
 allure-results/
 */allure-results/
-
 # Distribution / packaging
 .Python
 build/
